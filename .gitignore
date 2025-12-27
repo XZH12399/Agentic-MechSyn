@@ -1,0 +1,22 @@
+# --- Python 基础忽略 ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- 敏感文件 (严禁上传！) ---
+.env
+.DS_Store
+
+# --- 运行日志和输出 ---
+# 你的 outputs 文件夹里全是运行日志，建议忽略，除非你想保留历史记录
+outputs/
+*.log
+
+# --- IDE 配置 (可选) ---
+.vscode/
+.idea/
+
+# --- 数据集构建产生的临时/大型文件 (视情况决定是否保留) ---
+# 如果 .jsonl 文件很大，建议忽略
+dataset_builder/output/

@@ -1,0 +1,358 @@
+[
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "task": {
+      "user_intent_summary": "用户要求设计一个空间单环并联机构，实现沿Z轴的纯平移运动。",
+      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断：纯平移运动通常对应1-DOF。空间类型判断：用户提到'空间'，因此设为spatial。约束松弛化：用户未指定连杆数或关节类型，设为null。运动目标判定：用户要求实现具体运动，因此生成target_motion_twists表示Z轴平移的6D螺旋，并设置相应掩码。",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_links_min": null,
+        "num_links_max": null,
+        "allowed_joints": null,
+        "geometric_condition": null
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "target_path_sequence": [
+          1,
+          0,
+          6,
+          5
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "(5, 7, 7)",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "dof_check": {
+          "value": 1,
+          "status": "pass",
+          "msg": "Mobility is 1, non-rigid."
+        },
+        "dead_point": {
+          "has_dead_point": false,
+          "min_transmission_angle": 45.0,
+          "status": "pass"
+        },
+        "mode_consistency": {
+          "consistency_score": 0.98,
+          "status": "pass"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "task": {
+      "user_intent_summary": "用户要求设计一个空间单环并联机构，能够实现沿Z轴的纯平移运动。",
+      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断为1-DOF（纯平移），空间类型为'spatial'（用户提到'空间'）。由于是并联机构，拓扑结构可能涉及多个分支，但用户未指定连杆数或关节类型，因此约束设为null。运动目标转化为6D螺旋表示，其中平移沿Z轴（v3=1），旋转部分为零。",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_links_min": null,
+        "num_links_max": null,
+        "allowed_joints": null,
+        "geometric_condition": null
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "target_path_sequence": [
+          1,
+          0,
+          3,
+          2
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "(5, 4, 4)",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "dof_check": {
+          "value": 1,
+          "status": "pass",
+          "msg": "Mobility is 1, non-rigid."
+        },
+        "dead_point": {
+          "has_dead_point": false,
+          "min_transmission_angle": 45.0,
+          "status": "pass"
+        },
+        "mode_consistency": {
+          "consistency_score": 0.98,
+          "status": "pass"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "task": {
+      "user_intent_summary": "用户要求设计一个空间单环并联机构，实现沿Z轴的纯平移运动。",
+      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断：沿Z轴平移是1-DOF运动。空间类型判断：用户提到'空间'，因此为spatial。约束松弛化：用户未指定连杆数或关节类型限制，故设为null。运动目标判定：用户要求实现特定运动，因此生成target_motion_twists表示纯Z轴平移螺旋，并设置相应掩码。",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_links_min": null,
+        "num_links_max": null,
+        "allowed_joints": null,
+        "geometric_condition": null
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "target_path_sequence": [
+          1,
+          0,
+          5,
+          4
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "(5, 6, 6)",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "dof_check": {
+          "value": 1,
+          "status": "pass",
+          "msg": "Mobility is 1, non-rigid."
+        },
+        "dead_point": {
+          "has_dead_point": false,
+          "min_transmission_angle": 45.0,
+          "status": "pass"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "task": {
+      "user_intent_summary": "用户要求设计一个空间单环并联机构，能够实现沿Z轴的平移运动。",
+      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。推断自由度DOF=1（纯平移），空间类型为spatial（涉及三维运动）。用户未指定连杆数限制，因此设为null。目标运动螺旋设置为纯平移沿Z轴，掩码全为1表示所有自由度都受约束。",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_links_min": null,
+        "num_links_max": null,
+        "allowed_joints": null,
+        "geometric_condition": null
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along Z axis.",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "target_path_sequence": [
+          1,
+          0,
+          5,
+          4
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "(5, 6, 6)",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "dof_check": {
+          "value": 1,
+          "status": "pass",
+          "msg": "Mobility is 1, non-rigid."
+        },
+        "dead_point": {
+          "has_dead_point": false,
+          "min_transmission_angle": 45.0,
+          "status": "pass"
+        },
+        "mode_consistency": {
+          "consistency_score": 0.98,
+          "status": "pass"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "task": {
+      "user_intent_summary": "用户要求设计一个空间单环并联机构，该机构需实现沿Z轴的纯平移运动。",
+      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。推断自由度（DOF）为1（纯平移），空间类型为spatial（因涉及Z轴和空间）。未指定连杆数或关节类型，故约束设为null。目标运动螺旋为纯Z轴平移的6D向量，掩码全为1表示所有自由度都需匹配。",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_links_min": null,
+        "num_links_max": null,
+        "allowed_joints": null,
+        "geometric_condition": null
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along Z axis in a spatial single-loop parallel mechanism.",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": [
+          [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        ],
+        "target_path_sequence": [
+          1,
+          0,
+          4,
+          3
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "(5, 5, 5)",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "dof_check": {
+          "value": 1,
+          "status": "pass",
+          "msg": "Mobility is 1, non-rigid."
+        },
+        "dead_point": {
+          "has_dead_point": false,
+          "min_transmission_angle": 45.0,
+          "status": "pass"
+        },
+        "mode_consistency": {
+          "consistency_score": 0.98,
+          "status": "pass"
+        }
+      }
+    }
+  }
+]

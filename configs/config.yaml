@@ -1,0 +1,24 @@
+defaults:
+  - _self_
+
+project:
+  name: "Agentic-MechSyn"
+  version: "1.0"
+
+llm:
+  provider: "deepseek"   # 或 "openai"
+  model_name: "deepseek-chat" # DeepSeek V3
+#  provider: "v36"          # 切换这里：deepseek 或 v36
+#  model_name: "gpt-4o-mini" # 可选：指定你想用的模型，如果不填则用代码里的默认值
+  temperature: 0.7
+  max_tokens: 4096
+
+physics:
+  # 来自 GenRLMechSyn 的参数
+  tolerance_closure: 1e-4
+  max_iterations: 1000
+  learning_rate: 0.01
+
+agent:
+  max_turns: 10          # 防止死循环的最大对话轮数
+  enable_reflection: true # 是否开启自我反思

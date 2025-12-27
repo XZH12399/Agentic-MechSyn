@@ -1,0 +1,42 @@
+{
+  "id": "seed_bennett_classical_001",
+  "meta": {
+    "mech_type": "Bennett",
+    "is_spatial": true,
+    "dof": 1,
+    "source": "Textbook Standard",
+    "ground_nodes": [0, 3],
+    "ee_node": [1, 2]
+  },
+  "instruction": "设计一个经典的空间四杆Bennett机构，需满足对边相等且扭转角互补的几何条件。",
+  "graph": {
+    "nodes": [
+      {"id": 0, "type": "R", "role": "Ground"},
+      {"id": 1, "type": "R", "role": "EE"},
+      {"id": 2, "type": "R", "role": "EE"},
+      {"id": 3, "type": "R", "role": "Ground"}
+    ],
+    "edges": [
+            {
+                "source": 0, "target": 1,
+                "params": {"a": 10.0, "alpha": 2.6180, "offset_source": 0.0, "offset_target": 0.0},
+                "initial_state": {"q_source": -0.5236, "q_target": -0.5651}
+            },
+            {
+                "source": 1, "target": 2,
+                "params": {"a": 17.32, "alpha": 2.0944, "offset_source": 0.0, "offset_target": 0.0},
+                "initial_state": {"q_source": 0.5651, "q_target": -0.5236}
+            },
+            {
+                "source": 2, "target": 3,
+                "params": {"a": 10.0, "alpha": 2.6180, "offset_source": 0.0, "offset_target": 0.0},
+                "initial_state": {"q_source": 0.5236, "q_target": 0.5651}
+            },
+            {
+                "source": 3, "target": 0,
+                "params": {"a": 17.32, "alpha": 2.0944, "offset_source": 0.0, "offset_target": 0.0},
+                "initial_state": {"q_source": -0.5651, "q_target": 0.5236}
+            }
+        ]
+  }
+}
