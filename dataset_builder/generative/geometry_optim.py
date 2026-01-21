@@ -78,10 +78,12 @@ class DifferentiableOptimizer:
 
         return torch.stack(ratios)
 
-    def optimize_mobility(self, G, cycles, target_dof=1, max_steps=1500):
+    # ✨ 修改处：增加了 verbose=False 参数
+    def optimize_mobility(self, G, cycles, target_dof=1, max_steps=1500, verbose=False):
         """
         使用 [Detect -> Remove -> Count] 流程进行几何优化
         :param target_dof: 期望的目标自由度数量（默认为1）
+        :param verbose: 是否打印详细日志
         """
         # 统计活跃节点
         active_nodes = set()
@@ -94,8 +96,10 @@ class DifferentiableOptimizer:
         node_types_prob = torch.rand((num_nodes, 1), device=self.device)
         is_R_mask = (node_types_prob < prob_R).float()
         num_R = int(is_R_mask.sum().item())
-        print(
-            f"   🎲 Joint Config: R_prob={prob_R:.2f} | R-Joints: {num_R}, P-Joints: {num_nodes - num_R} | Target DoF: {target_dof}")
+        
+        # ✨ 修改处：增加 verbose 判断
+        if verbose:
+            print(f"   🎲 Joint Config: R_prob={prob_R:.2f} | R-Joints: {num_R}, P-Joints: {num_nodes - num_R} | Target DoF: {target_dof}")
 
         # 2. 初始化
         P_data = torch.rand((num_nodes, 3), device=self.device) * 10.0 - 5.0
@@ -106,7 +110,8 @@ class DifferentiableOptimizer:
         optimizer = optim.Adam([P, Z_raw], lr=0.05)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=100)
 
-        print(f"   🔧 Optimization w/ Integrated IDOF Filtering...")
+        if verbose:
+            print(f"   🔧 Optimization w/ Integrated IDOF Filtering...")
 
         # 预处理映射
         involved_edges_set = set()
@@ -165,17 +170,11 @@ class DifferentiableOptimizer:
             current_dof = 0
 
             try:
-                # === 步骤 1: 初次 SVD 寻找候选模态 ===
                 U, S, Vh = torch.linalg.svd(K)
-                # 选取最后 3 个作为候选 (根据需要调整，若 target_dof 较大，可能需要检测更多)
-                # 保证候选数量至少涵盖 target_dof
                 num_candidates = max(3, target_dof + 1)
                 candidates = Vh[-num_candidates:, :]
-
-                # === 步骤 2: 检测这些候选是否为瞬时机构 ===
                 drift_ratios = self._assess_candidates_idof_torch(K, candidates, cycles, Screws, edge_to_col)
 
-                # === 步骤 3: 构造增强矩阵 (Augment K) ===
                 rows_to_add = []
                 for i in range(len(drift_ratios)):
                     ratio = drift_ratios[i]
@@ -188,33 +187,27 @@ class DifferentiableOptimizer:
                 else:
                     K_aug = K
 
-                # === 步骤 4: 基于增强矩阵计算最终 Loss ===
                 U2, S2, Vh2 = torch.linalg.svd(K_aug)
-
                 full_S = torch.zeros(num_vars, device=self.device)
                 full_S[:S2.shape[0]] = S2
                 spectrum = torch.flip(full_S, dims=[0])
 
-                # [关键修改] 目标：剔除 IDOF 后，至少还要剩下 target_dof 个物理 DoF
                 target_zero_idx = num_active_nodes + target_dof
-
                 if len(spectrum) > target_zero_idx:
-                    # 惩罚前 target_zero_idx 个奇异值 (让它们都趋向 0)
                     zeros_part = spectrum[:target_zero_idx]
                     mobility_loss = torch.sum(zeros_part ** 2) * 10.0
 
-                # 记录当前的有效模式 (最小的那个)
-                current_null_motion = Vh2[-1, :].detach()
-
-                # 计算显示的 DoF
                 zero_count = torch.sum(spectrum < 1e-3).item()
                 current_dof = max(0, int(zero_count - num_active_nodes))
 
+                if current_dof > 0:
+                    current_null_motion = Vh2[-current_dof:, :].T.detach()
+                else:
+                    current_null_motion = Vh2[-1:, :].T.detach()
+
             except Exception as e:
-                # print(f"Error: {e}")
                 pass
 
-            # --- 正则化 ---
             edges = list(G.edges())
             dist_loss = torch.tensor(0.0, device=self.device)
             if edges:
@@ -233,21 +226,22 @@ class DifferentiableOptimizer:
             if total_loss.item() < best_loss:
                 best_loss = total_loss.item()
 
-            # --- 判定收敛 ---
-            # 要求：DoF 至少达到目标值
             if mobility_loss.item() < 1e-4 and dist_loss.item() < 1e-2 and current_dof >= target_dof:
                 final_P = P.detach()
                 final_Z = Z.detach()
                 final_dof = current_dof
                 final_null_motion = current_null_motion
                 success = True
-                print(
-                    f"   ✅ Converged! Clean DoF: {final_dof} (Target: {target_dof}), Loss: {mobility_loss.item():.6f}")
+                
+                # ✨ 修改处：增加 verbose 判断
+                if verbose:
+                    print(f"   ✅ Converged! Clean DoF: {final_dof} (Target: {target_dof}), Loss: {mobility_loss.item():.6f}")
                 break
 
             if step % 200 == 0:
-                print(
-                    f"   Step {step}: Loss={total_loss.item():.4f} (Mob={mobility_loss.item():.4f}, DoF={current_dof})")
+                # ✨ 修改处：增加 verbose 判断
+                if verbose:
+                    print(f"   Step {step}: Loss={total_loss.item():.4f} (Mob={mobility_loss.item():.4f}, DoF={current_dof})")
 
         final_joint_types = ['R' if m > 0.5 else 'P' for m in is_R_mask.cpu().numpy().flatten()]
 

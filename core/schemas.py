@@ -2,53 +2,47 @@ from enum import Enum
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict
 
-
 # ==============================================================================
-#  Part 1: 任务解析模板 (Step 1) - 移除具体的节点ID定义
+#  Part 1: 任务解析模板 (Step 1)
 # ==============================================================================
 
 class KinematicsSpec(BaseModel):
-    dof: int = Field(..., description="目标自由度")
+    dof: int = Field(..., description="机构的目标自由度 (Degrees of Freedom). e.g. Bennett=1, Spatial=6")
     space_type: Literal["planar", "spatial", "spherical"] = Field(..., description="运动空间类型")
-    # [移除] ground_nodes: 具体的 ID 应由 Step 2 决定
-
 
 class TargetSpec(BaseModel):
     task_type: Literal["path_generation", "motion_generation", "function_generation", "unknown"]
     description: str = Field(..., description="运动目标描述")
+    
+    # 保留这些字段，因为后续优化器(Optimizer)仍需要它们作为 Loss 的参考
+    target_motion_twists: Optional[List[List[float]]] = Field(None, description="目标运动螺旋列表 [[w,v],...]")
+    target_masks: Optional[List[List[float]]] = Field(None, description="目标掩码 (1=关注, 0=忽略)")
 
-    # 目标螺旋 (数值目标) 仍然保留在 Step 1，因为这是用户的需求
-    target_motion_twists: Optional[List[List[float]]] = Field(None, description="目标运动螺旋列表")
-    target_masks: Optional[List[List[float]]] = Field(None, description="目标掩码")
-
-    # [移除] target_path_sequence: 因为此时拓扑未定，无法给出合法序列
-
-
-# ... (ConstraintsSpec, SolverSettings, TaskTemplate 保持不变，但需去掉被移除的字段) ...
 class ConstraintsSpec(BaseModel):
+    # ✨ Num_Loops 在这里，代表“结构形式”
+    num_loops: int = Field(1, description="机构的独立闭环数量 (Fundamental Loops). e.g. Bennett=1, Delta=2+")
+    
     num_links_min: Optional[int] = Field(None, description="最少连杆数")
     num_links_max: Optional[int] = Field(None, description="最多连杆数")
-    allowed_joints: Optional[List[str]] = Field(None, description="允许的关节类型")
-    geometric_condition: Optional[str] = Field(None, description="特殊几何约束")
-
+    special_constraints: Optional[str] = Field(None, description="特殊机构约束 (e.g. 'bennett_ratio')")
 
 class SolverSettings(BaseModel):
+    # 保留优化器配置，DeepSeek 可根据任务难度调整参数
     max_iters: int = Field(2000, description="优化器最大迭代次数")
     closure_weight: float = Field(1.0, description="闭环约束权重")
     exploration_noise: float = Field(0.01, description="探索噪声等级")
 
-
 class TaskTemplate(BaseModel):
     user_intent_summary: str = Field(..., description="用户意图总结")
-    reasoning_trace: str = Field(..., description="推断逻辑")
+    reasoning_trace: str = Field(..., description="推断逻辑: 为什么选择这个DoF和Loop数？")
+    vla_instruction: str = Field(..., description="VLA指令 (备用，实际会由 Agent 重组)")
     kinematics: KinematicsSpec
     constraints: ConstraintsSpec
-    targets: TargetSpec
+    targets: TargetSpec 
     solver_settings: SolverSettings
 
-
 # ==============================================================================
-#  Part 2: 拓扑生成模板 (Step 2) - 新增元数据定义
+#  Part 2: 拓扑响应模板 (Step 2)
 # ==============================================================================
 
 class ConnectionSpec(BaseModel):
@@ -58,34 +52,51 @@ class ConnectionSpec(BaseModel):
     alpha: float = Field(..., description="扭转角 alpha")
     offset_source: float = Field(..., description="源节点处的偏移量")
     offset_target: float = Field(..., description="目标节点处的偏移量")
+    theta_source: float = Field(0.0, description="源节点处的初始角度/状态")
+    theta_target: float = Field(0.0, description="目标节点处的初始角度/状态")
 
-
+# VLA 的 raw output 转换后的标准结构
 class TopologySpec(BaseModel):
-    nodes: Dict[str, Literal["R", "P"]] = Field(..., description="节点列表")
+    nodes: Dict[str, Dict[str, str]] = Field(..., description="节点列表 {'0': {'type': 'R', 'role': 'ground'}, ...}")
     connections: List[ConnectionSpec] = Field(..., description="连接关系列表")
 
-
-# === ✨ 新增: 机构元数据 (绑定具体拓扑) ===
 class MechanismMetadata(BaseModel):
-    ground_nodes: List[int] = Field(..., description="被选定为机架(Ground)的节点ID列表")
-    ee_node: int = Field(..., description="被选定为末端执行器(End-Effector)的节点ID")
-
+    ground_nodes: List[int] = Field(..., description="机架节点 ID")
+    ee_node: int = Field(..., description="末端执行器节点 ID")
 
 class TopologyResponse(BaseModel):
-    thought_trace: str = Field(..., description="设计思维链")
-    topology: TopologySpec = Field(..., description="核心拓扑数据")
+    thought_trace: str = Field(..., description="生成逻辑说明")
+    
+    # ✨ 核心新增：保留 VLA 的原始 Token 输出，便于 Debug 和反思
+    raw_tokens: str = Field(..., description="VLA 模型输出的原始 Token 流 (<Action_...>)")
+    
+    topology: TopologySpec = Field(..., description="解析后的拓扑结构")
+    meta: MechanismMetadata = Field(..., description="元数据")
 
-    # ✨ 新增字段
-    meta: MechanismMetadata = Field(..., description="基于生成拓扑的元数据定义")
+# ==============================================================================
+#  Part 2.5: 语义修正模板 (Step 2.5 - New!)
+# ==============================================================================
 
+class ParameterOverride(BaseModel):
+    target_type: Literal["node", "connection"] = Field(..., description="修改对象类型")
+    target_id: str = Field(..., description="对象的ID (Node ID 或 'src_tgt')")
+    param_name: str = Field(..., description="要修改的参数名 (type, role, a, alpha, offset, theta)")
+    value: str = Field(..., description="新值 (可以是具体数值，也可以是表达式如 'same_as_link_1')")
 
-# ... (Part 3: ToolSelectionResponse 保持不变) ...
+class TopologyCorrectionResponse(BaseModel):
+    requires_correction: bool = Field(..., description="是否需要修正 VLA 的输出")
+    reasoning: str = Field(..., description="修正的理由 (例如: 'Bennett机构需要4个R副且对边相等')")
+    corrections: List[ParameterOverride] = Field(default_factory=list, description="具体的修改操作列表")
+
+# ==============================================================================
+#  Part 3: 工具选择与反思 (Step 3 & Reflect)
+# ==============================================================================
+
 class ToolDefinition(BaseModel):
     name: str = Field(..., description="工具名称")
     description: str = Field(..., description="功能描述")
     input_desc: str = Field(..., description="输入定义")
     output_desc: str = Field(..., description="输出定义")
-
 
 class ToolSelectionResponse(BaseModel):
     selected_optimization_tools: List[str] = Field(..., description="已选优化工具")
@@ -94,24 +105,15 @@ class ToolSelectionResponse(BaseModel):
     suggested_new_evaluation_tools: List[ToolDefinition] = Field(default_factory=list, description="新评估工具建议")
     reasoning: str = Field(..., description="选择理由")
 
-
-# 1. 定义修正动作的枚举
 class ReflectionAction(str, Enum):
-    KEEP_CURRENT = "keep_current"  # 成功了，无需修改
-    RESELECT_ANCHORS = "reselect_anchors"  # 重新选择 Ground/EE (针对 Pain Point 1)
-    REINIT_GEOMETRY = "reinit_geometry"  # 重新初始化几何参数 (针对 Pain Point 3)
-    REGENERATE_TOPOLOGY = "regenerate_topology"  # 彻底重画拓扑 (针对 Pain Point 2)
+    KEEP_CURRENT = "keep_current"
+    RESELECT_ANCHORS = "reselect_anchors"       # 针对路径问题，重选机架/末端
+    REINIT_GEOMETRY = "reinit_geometry"         # 针对 VLA 参数初值不理想
+    REGENERATE_TOPOLOGY = "regenerate_topology" # 针对 VLA 拓扑生成错误 (如断开、DoF不对)
 
-
-# 2. 定义反思结果 Schema
 class ReflectionResponse(BaseModel):
-    analysis: str = Field(...,
-                          description="对失败原因的深度分析 (例如：'Loss NaN 说明初始构型奇异' 或 '路径误差大说明机架位置不合理')")
-    action: ReflectionAction = Field(..., description="下一步的修正策略")
-
-    # 如果选择 RESELECT_ANCHORS，必须填写以下字段
-    suggested_ground_nodes: Optional[List[int]] = Field(None, description="建议新的机架节点ID列表")
-    suggested_ee_node: Optional[int] = Field(None, description="建议新的末端节点ID")
-
-    # 如果选择 REGENERATE_TOPOLOGY，可以给出建议
-    topology_suggestion: Optional[str] = Field(None, description="给拓扑生成器的改进建议 (例如：'增加连杆数')")
+    analysis: str = Field(..., description="失败原因分析")
+    action: ReflectionAction = Field(..., description="修正策略")
+    
+    # 用于指导下一步的修正
+    refinement_instruction: Optional[str] = Field(None, description="给 VLA 或 优化器的修正指令")

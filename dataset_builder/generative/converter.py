@@ -9,6 +9,18 @@ class MechanismConverter:
     def __init__(self, device='cpu'):
         self.device = device
 
+    def _sanitize_float(self, val):
+        """清洗浮点数: 处理 NaN, Inf, 并限制数值范围"""
+        if val is None: return 0.0
+        try:
+            val = float(val)
+        except:
+            return 0.0
+
+        if np.isnan(val) or np.isinf(val): return 0.0
+        # 限制范围 (防止过大数值)
+        return float(np.clip(val, -1000.0, 1000.0))
+
     # =========================================================
     # 1. 几何计算与标准化辅助函数
     # =========================================================
@@ -39,6 +51,7 @@ class MechanismConverter:
                 if np.linalg.norm(n) < 1e-6: n = np.cross(z1, np.array([0, 1, 0]))
             n = n / np.linalg.norm(n)
             a = np.linalg.norm(np.cross(p2 - p1, z1))
+
             t1 = np.dot(p2 - p1, z1)
             Pa = p1 + t1 * z1
             Pb = p2 + z2 * np.dot(Pa - p2, z2)
@@ -46,40 +59,46 @@ class MechanismConverter:
             n = n / n_norm
             alpha = np.arctan2(n_norm, np.dot(z1, z2))
             a = np.abs(np.dot(p2 - p1, n))
+
             dot_12 = np.dot(z1, z2)
             denom = 1 - dot_12 ** 2
             vec = p2 - p1
+
+            if abs(denom) < 1e-9: denom = 1e-9
+
             t1 = (np.dot(vec, z1) - np.dot(vec, z2) * dot_12) / denom
             t2 = (np.dot(vec, z1) * dot_12 - np.dot(vec, z2)) / denom
             Pa = p1 + z1 * t1
             Pb = p2 + z2 * t2
+
         return float(a), float(alpha), n, Pa, Pb
 
     def _normalize_node_params(self, node_id, attachments, axis_vec):
         if not attachments: return {}
 
         d_values = [item['d_raw'] for item in attachments]
-        d_mean = np.mean(d_values)
+        valid_d = [d for d in d_values if not np.isnan(d) and not np.isinf(d)]
+        d_mean = np.mean(valid_d) if valid_d else 0.0
 
         base_n = attachments[0]['n_vec']
         local_x = base_n
-        local_y = np.cross(axis_vec, local_x)  # 修正: 确保正交系正确
+        local_y = np.cross(axis_vec, local_x)
 
         q_values = []
         for item in attachments:
             n = item['n_vec']
-            # 使用 atan2 确保角度范围正确
-            # n 在 local_x, local_y 平面的投影
             angle = np.arctan2(np.dot(n, local_y), np.dot(n, local_x))
             q_values.append(angle)
-        q_mean = np.mean(q_values)
+
+        valid_q = [q for q in q_values if not np.isnan(q)]
+        q_mean = np.mean(valid_q) if valid_q else 0.0
 
         normalized_map = {}
         for i, item in enumerate(attachments):
             edge_key = item['edge_key']
             d_final = d_values[i] - d_mean
             q_final = (q_values[i] - q_mean + np.pi) % (2 * np.pi) - np.pi
-            normalized_map[edge_key] = {"offset": float(d_final), "q": float(q_final)}
+            normalized_map[edge_key] = {"offset": d_final, "q": q_final}
         return normalized_map
 
     # =========================================================
@@ -138,7 +157,10 @@ class MechanismConverter:
         return valid[0][1], valid[0][2], valid[0][0]
 
     def _compute_relative_twist_link_to_link(self, path_nodes, ordered_base, ordered_ee, Screws, edge_to_col,
-                                             null_motion):
+                                             joint_velocities):
+        """
+        计算相对运动螺旋 (支持传入特定的关节速度向量)
+        """
         twist = torch.zeros(6)
         L = len(path_nodes)
         for i in range(L):
@@ -147,23 +169,23 @@ class MechanismConverter:
             next_n = ordered_ee[1] if i == L - 1 else path_nodes[i + 1]
 
             val_in, val_out = 0.0, 0.0
+            # 从 joint_velocities 中提取对应边的速度值
             if (prev, curr) in edge_to_col:
-                val_in = null_motion[edge_to_col[(prev, curr)]]
+                val_in = joint_velocities[edge_to_col[(prev, curr)]]
             elif (curr, prev) in edge_to_col:
-                val_in = -null_motion[edge_to_col[(curr, prev)]]
+                val_in = -joint_velocities[edge_to_col[(curr, prev)]]
 
             if (curr, next_n) in edge_to_col:
-                val_out = null_motion[edge_to_col[(curr, next_n)]]
+                val_out = joint_velocities[edge_to_col[(curr, next_n)]]
             elif (next_n, curr) in edge_to_col:
-                val_out = -null_motion[edge_to_col[(next_n, curr)]]
+                val_out = -joint_velocities[edge_to_col[(next_n, curr)]]
 
             twist += Screws[curr] * (val_out - val_in)
 
-        if torch.norm(twist) > 1e-6: twist = twist / torch.norm(twist)
         return twist.tolist()
 
     # =========================================================
-    # 3. 主处理逻辑 (Clean Version)
+    # 3. 主处理逻辑
     # =========================================================
 
     def process(self, G, P, Z, joint_types, dof_val, null_motion, mech_id, num_task_samples=5):
@@ -171,22 +193,27 @@ class MechanismConverter:
         P_np = P.cpu().numpy() if isinstance(P, torch.Tensor) else P
         Z_np = Z.cpu().numpy() if isinstance(Z, torch.Tensor) else Z
 
-        # A. 预备
         if not isinstance(null_motion, torch.Tensor): null_motion = torch.tensor(null_motion)
         null_motion = null_motion.cpu()
+
+        # ✨ 关键修改 1: 确保 null_motion 是二维矩阵 [num_vars, dof]
+        if null_motion.dim() == 1:
+            null_motion = null_motion.unsqueeze(1)
+
+        # 获取实际的自由度数量 (列数)
+        actual_dof = null_motion.shape[1]
+
         P_t = torch.tensor(P_np, dtype=torch.float32)
         Z_t = torch.tensor(Z_np, dtype=torch.float32)
         edge_to_col = self._build_edge_mapping(G)
         Screws = self._compute_all_screws(num_nodes, P_t, Z_t, joint_types)
 
-        # B. 标准化
         std_Z = []
         for i in range(num_nodes):
             z_new, sign = self._get_standard_axis(Z_np[i])
             std_Z.append(z_new)
         std_Z = np.array(std_Z)
 
-        # C. 几何计算 & 收集
         node_attachments = {i: [] for i in range(num_nodes)}
         raw_edges_data = {}
 
@@ -196,13 +223,10 @@ class MechanismConverter:
             )
             d_u_raw = np.dot(Pa - P_np[u], std_Z[u])
             node_attachments[u].append({"edge_key": (u, v), "d_raw": d_u_raw, "n_vec": n})
-
             d_v_raw = np.dot(Pb - P_np[v], std_Z[v])
             node_attachments[v].append({"edge_key": (v, u), "d_raw": d_v_raw, "n_vec": n})
-
             raw_edges_data[tuple(sorted((u, v)))] = {"a": a, "alpha": alpha}
 
-        # D. 归一化
         node_normalized_params = {}
         for i in range(num_nodes):
             attachments = node_attachments[i]
@@ -210,7 +234,7 @@ class MechanismConverter:
             norm_map = self._normalize_node_params(i, attachments, std_Z[i])
             node_normalized_params[i] = norm_map
 
-        # E. 任务采样 (Tasks) - 不再决定 Graph 顶层的 Ground/EE
+        # E. 任务采样 (Tasks) - 支持多维运动空间
         edges_list_nx = list(G.edges())
         all_edge_pairs = list(itertools.combinations(edges_list_nx, 2))
         sampled_pairs = random.sample(all_edge_pairs, min(len(all_edge_pairs), num_task_samples))
@@ -219,24 +243,31 @@ class MechanismConverter:
         for e1, e2 in sampled_pairs:
             ordered_base, ordered_ee, path_nodes = self._find_best_path_between_edges(G, e1, e2)
             if path_nodes:
-                twist = self._compute_relative_twist_link_to_link(
-                    path_nodes, ordered_base, ordered_ee, Screws, edge_to_col, null_motion
-                )
+                # ✨ 关键修改 2: 循环遍历所有自由度，计算基底螺旋
+                screws_basis = []
+                for k in range(actual_dof):
+                    # 取第 k 列作为当前的关节速度分布
+                    joint_vel_k = null_motion[:, k]
+
+                    twist = self._compute_relative_twist_link_to_link(
+                        path_nodes, ordered_base, ordered_ee, Screws, edge_to_col, joint_vel_k
+                    )
+                    # 清洗数据
+                    screws_basis.append([self._sanitize_float(x) for x in twist])
+
+                # 存入列表的列表 (List of Lists)
+                # 字段名变更为 "motion_screws" (复数) 以示区别
                 tasks_data.append({
-                    "base_link": list(ordered_base),  # [Virtual, Real]
-                    "ee_link": list(ordered_ee),  # [Real, Virtual]
+                    "base_link": list(ordered_base),
+                    "ee_link": list(ordered_ee),
                     "joint_path": path_nodes,
-                    "motion_screw": twist
+                    "motion_screws": screws_basis
                 })
 
-        # F. 构建 JSON - 纯粹的机构描述
+        # F. 构建 JSON
         nodes_list = []
         for i in range(num_nodes):
-            # 去除 Role 字段，因为 Role 取决于 Task
-            nodes_list.append({
-                "id": i,
-                "type": joint_types[i]
-            })
+            nodes_list.append({"id": i, "type": joint_types[i]})
 
         edges_output = []
         for u, v in G.edges():
@@ -246,16 +277,18 @@ class MechanismConverter:
             edges_output.append({
                 "source": u, "target": v,
                 "params": {
-                    "a": geo['a'], "alpha": geo['alpha'],
-                    "offset_source": p_src['offset'], "offset_target": p_tgt['offset']
+                    "a": self._sanitize_float(geo['a']),
+                    "alpha": self._sanitize_float(geo['alpha']),
+                    "offset_source": self._sanitize_float(p_src['offset']),
+                    "offset_target": self._sanitize_float(p_tgt['offset'])
                 },
                 "initial_state": {
-                    "q_source": p_src['q'], "q_target": p_tgt['q']
+                    "q_source": self._sanitize_float(p_src['q']),
+                    "q_target": self._sanitize_float(p_tgt['q'])
                 }
             })
 
         final_data = {
-            # 移除了顶层的 ground_nodes 和 ee_node
             "graph": {
                 "nodes": nodes_list,
                 "edges": edges_output
@@ -264,7 +297,7 @@ class MechanismConverter:
                 "dof": int(dof_val),
                 "num_loops": len(nx.cycle_basis(G)),
                 "is_spatial": True,
-                "tasks": tasks_data  # 所有的应用场景定义都在这里
+                "tasks": tasks_data
             }
         }
 

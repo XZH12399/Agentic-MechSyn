@@ -15,7 +15,7 @@ from converter import MechanismConverter
 def main():
     # === 配置区域 ===
     OUTPUT_DIR = "../output/generated_v1"
-    NUM_SAMPLES = 4  # 想要生成的机构总数
+    NUM_SAMPLES = 10  # 想要生成的机构总数
     TASKS_PER_MECH = 5  # 每个机构生成的任务(Base-EE)对数
     TARGET_DOF = 2  # 🎯 目标自由度 (可以设为 1, 2, 3...)
 

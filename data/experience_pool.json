@@ -1,22 +1,23 @@
 [
   {
-    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。",
     "task": {
-      "user_intent_summary": "用户要求设计一个空间单环并联机构，实现沿Z轴的纯平移运动。",
-      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断：纯平移运动通常对应1-DOF。空间类型判断：用户提到'空间'，因此设为spatial。约束松弛化：用户未指定连杆数或关节类型，设为null。运动目标判定：用户要求实现具体运动，因此生成target_motion_twists表示Z轴平移的6D螺旋，并设置相应掩码。",
+      "user_intent_summary": "用户要求设计一个平面单环并联机构，其末端执行器能够实现沿Z轴的平移运动。",
+      "reasoning_trace": "用户指定了'平面单环并联机构'，这意味着机构是平面的（space_type: planar），具有一个闭环（num_loops: 1），并且是并联结构（通常涉及多个支链）。运动要求是'沿z轴平移运动'，在平面机构中，Z轴通常垂直于平面，因此这对应于平面内的一个平移自由度（dof: 1）。由于是任务导向设计（用户指定了具体运动），需要设置目标运动螺旋。平面内沿Z轴的平移运动可以表示为螺旋 [0,0,0,0,0,1]（其中前三个是角速度分量，后三个是线速度分量），但平面机构通常忽略Z轴平移，所以这里简化为平面内的一个平移自由度。根据Gruebler公式，对于平面机构，DoF = 3*(n-1) - 2*j1 - j2，其中n是连杆数，j1是低副数，j2是高副数。对于单环并联机构，典型配置如平面四杆机构（4连杆，4低副）具有1 DoF，符合要求。因此，推断为1 DoF和1 Loop。",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism that achieves translational motion along the Z-axis.",
       "kinematics": {
         "dof": 1,
-        "space_type": "spatial"
+        "space_type": "planar"
       },
       "constraints": {
+        "num_loops": 1,
         "num_links_min": null,
         "num_links_max": null,
-        "allowed_joints": null,
-        "geometric_condition": null
+        "special_constraints": null
       },
       "targets": {
         "task_type": "motion_generation",
-        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
+        "description": "Translational motion along the Z-axis in a planar mechanism.",
         "target_motion_twists": [
           [
             0.0,
@@ -27,92 +28,11 @@
             1.0
           ]
         ],
-        "target_masks": [
-          [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ]
-        ],
+        "target_masks": null,
         "target_path_sequence": [
-          1,
-          0,
-          6,
-          5
-        ]
-      },
-      "solver_settings": {
-        "max_iters": 2000,
-        "closure_weight": 1.0,
-        "exploration_noise": 0.01
-      }
-    },
-    "tensor_summary": "(5, 7, 7)",
-    "report": {
-      "final_score": 100.0,
-      "details": {
-        "dof_check": {
-          "value": 1,
-          "status": "pass",
-          "msg": "Mobility is 1, non-rigid."
-        },
-        "dead_point": {
-          "has_dead_point": false,
-          "min_transmission_angle": 45.0,
-          "status": "pass"
-        },
-        "mode_consistency": {
-          "consistency_score": 0.98,
-          "status": "pass"
-        }
-      }
-    }
-  },
-  {
-    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
-    "task": {
-      "user_intent_summary": "用户要求设计一个空间单环并联机构，能够实现沿Z轴的纯平移运动。",
-      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断为1-DOF（纯平移），空间类型为'spatial'（用户提到'空间'）。由于是并联机构，拓扑结构可能涉及多个分支，但用户未指定连杆数或关节类型，因此约束设为null。运动目标转化为6D螺旋表示，其中平移沿Z轴（v3=1），旋转部分为零。",
-      "kinematics": {
-        "dof": 1,
-        "space_type": "spatial"
-      },
-      "constraints": {
-        "num_links_min": null,
-        "num_links_max": null,
-        "allowed_joints": null,
-        "geometric_condition": null
-      },
-      "targets": {
-        "task_type": "motion_generation",
-        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
-        "target_motion_twists": [
-          [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0
-          ]
-        ],
-        "target_masks": [
-          [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ]
-        ],
-        "target_path_sequence": [
-          1,
-          0,
           3,
+          0,
+          1,
           2
         ]
       },
@@ -126,41 +46,47 @@
     "report": {
       "final_score": 100.0,
       "details": {
-        "dof_check": {
-          "value": 1,
+        "closure_loop": {
           "status": "pass",
-          "msg": "Mobility is 1, non-rigid."
+          "pos_error_mm": 0.0092,
+          "msg": "PosErr: 0.009mm, AngErr: 0.000rad"
         },
-        "dead_point": {
-          "has_dead_point": false,
-          "min_transmission_angle": 45.0,
-          "status": "pass"
+        "dof_check": {
+          "status": "pass",
+          "value": 1,
+          "msg": "Effective DoF: 1 (Continuous)",
+          "raw_dof": 1
         },
-        "mode_consistency": {
-          "consistency_score": 0.98,
-          "status": "pass"
+        "twist_match": {
+          "status": "pass",
+          "msg": "Twist Residual: 1.00e-03"
+        },
+        "instantaneous_check": {
+          "status": "pass",
+          "msg": "Drift Resid: 3.22e-08 -> Continuous"
         }
       }
     }
   },
   {
-    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。",
     "task": {
-      "user_intent_summary": "用户要求设计一个空间单环并联机构，实现沿Z轴的纯平移运动。",
-      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。自由度推断：沿Z轴平移是1-DOF运动。空间类型判断：用户提到'空间'，因此为spatial。约束松弛化：用户未指定连杆数或关节类型限制，故设为null。运动目标判定：用户要求实现特定运动，因此生成target_motion_twists表示纯Z轴平移螺旋，并设置相应掩码。",
+      "user_intent_summary": "Design a planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
+      "reasoning_trace": "The user specifies a planar mechanism, which implies motion in a 2D plane (typically XY), but requires translation along the Z-axis. This is contradictory as planar mechanisms are confined to 2D motion. However, interpreting 'planar' as the mechanism lying in a plane (e.g., XY plane) while producing out-of-plane motion (Z-axis translation) suggests a spatial mechanism with constraints to achieve 1-DOF translation. A single-loop parallel mechanism with 1-DOF is inferred, as it must provide controlled motion along Z. Gruebler's formula for spatial mechanisms: DoF = 6*(n-1) - 5*j1 - 4*j2 - 3*j3 - 2*j4 - 1*j5, where n is links, j is joints. For 1-DOF and 1 loop, a common solution is a 4-bar spatial mechanism with revolute and prismatic joints arranged to constrain other motions.",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism that achieves pure translation along the Z-axis.",
       "kinematics": {
         "dof": 1,
         "space_type": "spatial"
       },
       "constraints": {
+        "num_loops": 1,
         "num_links_min": null,
         "num_links_max": null,
-        "allowed_joints": null,
-        "geometric_condition": null
+        "special_constraints": "Planar configuration with out-of-plane translation; ensure joints constrain motion to Z-axis only."
       },
       "targets": {
         "task_type": "motion_generation",
-        "description": "Pure translation along Z axis for a spatial single-loop parallel mechanism.",
+        "description": "Pure translation along the Z-axis.",
         "target_motion_twists": [
           [
             0.0,
@@ -171,21 +97,12 @@
             1.0
           ]
         ],
-        "target_masks": [
-          [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ]
-        ],
+        "target_masks": null,
         "target_path_sequence": [
-          1,
+          3,
           0,
-          5,
-          4
+          1,
+          2
         ]
       },
       "solver_settings": {
@@ -194,41 +111,47 @@
         "exploration_noise": 0.01
       }
     },
-    "tensor_summary": "(5, 6, 6)",
+    "tensor_summary": "(5, 4, 4)",
     "report": {
       "final_score": 100.0,
       "details": {
-        "dof_check": {
-          "value": 1,
+        "closure_loop": {
           "status": "pass",
-          "msg": "Mobility is 1, non-rigid."
+          "pos_error_mm": 0.0114,
+          "msg": "PosErr: 0.011mm, AngErr: 0.001rad"
         },
-        "dead_point": {
-          "has_dead_point": false,
-          "min_transmission_angle": 45.0,
-          "status": "pass"
+        "dof_check": {
+          "status": "pass",
+          "value": 1,
+          "msg": "Effective DoF: 1 (Continuous)",
+          "raw_dof": 1
+        },
+        "twist_match": {
+          "status": "pass",
+          "msg": "Twist Residual: 2.40e-03"
         }
       }
     }
   },
   {
-    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。",
     "task": {
-      "user_intent_summary": "用户要求设计一个空间单环并联机构，能够实现沿Z轴的平移运动。",
-      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。推断自由度DOF=1（纯平移），空间类型为spatial（涉及三维运动）。用户未指定连杆数限制，因此设为null。目标运动螺旋设置为纯平移沿Z轴，掩码全为1表示所有自由度都受约束。",
+      "user_intent_summary": "Design a planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
+      "reasoning_trace": "The user specifies a planar mechanism, which implies motion in a 2D plane (XY), but requires translation along the Z-axis. This is contradictory as planar mechanisms typically have DoF in-plane (e.g., X, Y, rotation about Z). However, interpreting 'planar' as the mechanism lying in a plane (e.g., XY plane) and 'Z-axis translation' as out-of-plane motion, this suggests a spatial mechanism with constraints to achieve 1-DOF translation along Z. A single-loop parallel mechanism with 1-DOF and 1 loop is inferred, as it's a common setup for controlled motion. Gruebler's formula for spatial mechanisms: DoF = 6*(n-1) - sum(f_i), where n is number of links. For a single-loop (n=4 links typical), to achieve 1-DOF, joints must be constrained appropriately (e.g., using prismatic or revolute joints with specific orientations).",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
       "kinematics": {
         "dof": 1,
         "space_type": "spatial"
       },
       "constraints": {
+        "num_loops": 1,
         "num_links_min": null,
         "num_links_max": null,
-        "allowed_joints": null,
-        "geometric_condition": null
+        "special_constraints": "Planar configuration with out-of-plane Z-axis translation"
       },
       "targets": {
         "task_type": "motion_generation",
-        "description": "Pure translation along Z axis.",
+        "description": "Pure translation along the Z-axis",
         "target_motion_twists": [
           [
             0.0,
@@ -239,21 +162,12 @@
             1.0
           ]
         ],
-        "target_masks": [
-          [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ]
-        ],
+        "target_masks": null,
         "target_path_sequence": [
-          1,
           0,
-          5,
-          4
+          3,
+          2,
+          1
         ]
       },
       "solver_settings": {
@@ -262,45 +176,47 @@
         "exploration_noise": 0.01
       }
     },
-    "tensor_summary": "(5, 6, 6)",
+    "tensor_summary": "torch.Size([5, 4, 4])",
     "report": {
       "final_score": 100.0,
       "details": {
-        "dof_check": {
-          "value": 1,
+        "closure_loop": {
           "status": "pass",
-          "msg": "Mobility is 1, non-rigid."
+          "pos_error_mm": 0.0011,
+          "msg": "PosErr: 0.001mm, AngErr: 0.000rad"
         },
-        "dead_point": {
-          "has_dead_point": false,
-          "min_transmission_angle": 45.0,
-          "status": "pass"
+        "dof_check": {
+          "status": "pass",
+          "value": 1,
+          "msg": "Effective DoF: 1 (Continuous)",
+          "raw_dof": 1
         },
-        "mode_consistency": {
-          "consistency_score": 0.98,
-          "status": "pass"
+        "twist_match": {
+          "status": "pass",
+          "msg": "Twist Residual: 2.67e-03"
         }
       }
     }
   },
   {
-    "user_input": "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。",
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。",
     "task": {
-      "user_intent_summary": "用户要求设计一个空间单环并联机构，该机构需实现沿Z轴的纯平移运动。",
-      "reasoning_trace": "用户明确指定了运动目标（沿Z轴平移），这属于任务导向设计。推断自由度（DOF）为1（纯平移），空间类型为spatial（因涉及Z轴和空间）。未指定连杆数或关节类型，故约束设为null。目标运动螺旋为纯Z轴平移的6D向量，掩码全为1表示所有自由度都需匹配。",
+      "user_intent_summary": "Design a planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
+      "reasoning_trace": "The user specifies a planar mechanism, which implies motion in a 2D plane (XY), but requires translation along the Z-axis. This is contradictory as planar mechanisms typically have DoF in-plane (e.g., X, Y, rotation about Z). However, interpreting 'planar' as the mechanism lying in a plane (e.g., XY plane) but producing out-of-plane motion (Z-axis translation), this suggests a spatial mechanism with constraints to limit motion to Z-translation only. For a single-loop parallel mechanism with 1-DOF (pure Z-translation), based on Gruebler's formula for spatial mechanisms: DoF = 6*(n-1) - 5*j1 - 4*j2 - 3*j3 - 2*j4 - 1*j5, where n is number of links and j is joints. A common example is a Sarrus-like linkage or a constrained parallel mechanism. Here, DoF=1, loop=1, space_type='spatial' to accommodate Z-axis motion.",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism that achieves pure translation along the Z-axis.",
       "kinematics": {
         "dof": 1,
         "space_type": "spatial"
       },
       "constraints": {
+        "num_loops": 1,
         "num_links_min": null,
         "num_links_max": null,
-        "allowed_joints": null,
-        "geometric_condition": null
+        "special_constraints": null
       },
       "targets": {
         "task_type": "motion_generation",
-        "description": "Pure translation along Z axis in a spatial single-loop parallel mechanism.",
+        "description": "Pure translation along the Z-axis",
         "target_motion_twists": [
           [
             0.0,
@@ -311,21 +227,12 @@
             1.0
           ]
         ],
-        "target_masks": [
-          [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0
-          ]
-        ],
+        "target_masks": null,
         "target_path_sequence": [
-          1,
           0,
-          4,
-          3
+          3,
+          2,
+          1
         ]
       },
       "solver_settings": {
@@ -334,23 +241,141 @@
         "exploration_noise": 0.01
       }
     },
-    "tensor_summary": "(5, 5, 5)",
+    "tensor_summary": "torch.Size([5, 4, 4])",
+    "report": {
+      "final_score": 66.66666666666666,
+      "details": {
+        "closure_loop": {
+          "status": "pass",
+          "pos_error_mm": 0.0013,
+          "msg": "PosErr: 0.001mm, AngErr: 0.017rad"
+        },
+        "dof_check": {
+          "status": "fail",
+          "value": 0,
+          "msg": "Effective DoF: 0 (Overconstrained)",
+          "raw_dof": 0
+        },
+        "twist_match": {
+          "status": "pass",
+          "msg": "Twist Residual: 1.62e-03"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。",
+    "task": {
+      "user_intent_summary": "Design a planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
+      "reasoning_trace": "The user specifies a planar mechanism, which implies motion in a 2D plane (XY), but requires translation along the Z-axis. This is contradictory as planar mechanisms typically have DoF in-plane (e.g., X, Y, rotation about Z). However, interpreting 'planar' as the mechanism lying in a plane (e.g., XY plane) but achieving out-of-plane motion (Z translation) suggests a spatial mechanism with constraints to limit motion to Z translation only. The requirement is 'single-loop' and 'parallel', indicating a closed-chain structure with one fundamental loop. For pure Z-axis translation, the target motion is 1-DOF linear motion along Z. Using Gruebler's formula for spatial mechanisms: DoF = 6*(n-1) - 5*j1 - 4*j2 - 3*j3 - 2*j4 - 1*j5, where n is links, j is joints. A single-loop parallel mechanism typically has n=4 (e.g., base, two legs, moving platform) and joints like revolute or prismatic. To achieve 1-DOF Z translation, constraints must be applied to restrict other motions. This is a task-driven design with specified motion target.",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism that provides pure translation along the Z-axis.",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "spatial"
+      },
+      "constraints": {
+        "num_loops": 1,
+        "num_links_min": null,
+        "num_links_max": null,
+        "special_constraints": "Planar configuration with out-of-plane Z translation; parallel structure with single loop"
+      },
+      "targets": {
+        "task_type": "motion_generation",
+        "description": "Pure translation along the Z-axis",
+        "target_motion_twists": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "target_masks": null,
+        "target_path_sequence": [
+          0,
+          3,
+          2,
+          1
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "torch.Size([5, 4, 4])",
     "report": {
       "final_score": 100.0,
       "details": {
-        "dof_check": {
-          "value": 1,
+        "closure_loop": {
           "status": "pass",
-          "msg": "Mobility is 1, non-rigid."
+          "pos_error_mm": 0.0112,
+          "msg": "PosErr: 0.011mm, AngErr: 0.000rad"
         },
-        "dead_point": {
-          "has_dead_point": false,
-          "min_transmission_angle": 45.0,
-          "status": "pass"
+        "dof_check": {
+          "status": "pass",
+          "value": 1,
+          "msg": "Effective DoF: 1 (Continuous)",
+          "raw_dof": 1
         },
-        "mode_consistency": {
-          "consistency_score": 0.98,
-          "status": "pass"
+        "twist_match": {
+          "status": "pass",
+          "msg": "Twist Residual: 6.88e-04"
+        }
+      }
+    }
+  },
+  {
+    "user_input": "设计一个满足'一个转动'条件的平面单环并联机构。",
+    "task": {
+      "user_intent_summary": "Design a planar single-loop parallel mechanism with one rotational degree of freedom.",
+      "reasoning_trace": "The user specifies a 'planar single-loop parallel mechanism' with 'one rotational condition', which implies a 1-DoF mechanism in planar space. For a single-loop parallel mechanism, the Gruebler formula for planar mechanisms (DoF = 3*(n-1) - 2*j1 - j2) must be satisfied. A common example is a four-bar linkage with one fixed link and one rotational input, resulting in 1 DoF. Since it's a parallel mechanism, it involves multiple chains connecting to a common platform, but in a single-loop configuration, this typically means a closed kinematic chain like a four-bar. No special constraints like Bennett are mentioned, so this is a standard planar mechanism.",
+      "vla_instruction": "Design a mechanism with 1 DoF and 1 loop based on: A planar single-loop parallel mechanism with one rotational degree of freedom.",
+      "kinematics": {
+        "dof": 1,
+        "space_type": "planar"
+      },
+      "constraints": {
+        "num_loops": 1,
+        "num_links_min": null,
+        "num_links_max": null,
+        "special_constraints": null
+      },
+      "targets": {
+        "task_type": "unknown",
+        "description": "Planar single-loop parallel mechanism with one rotational motion.",
+        "target_motion_twists": null,
+        "target_masks": null,
+        "target_path_sequence": [
+          0,
+          3,
+          2,
+          1
+        ]
+      },
+      "solver_settings": {
+        "max_iters": 2000,
+        "closure_weight": 1.0,
+        "exploration_noise": 0.01
+      }
+    },
+    "tensor_summary": "torch.Size([5, 4, 4])",
+    "report": {
+      "final_score": 100.0,
+      "details": {
+        "closure_loop": {
+          "status": "pass",
+          "pos_error_mm": 0.0005,
+          "msg": "PosErr: 0.000mm, AngErr: 0.000rad"
+        },
+        "dof_check": {
+          "status": "pass",
+          "value": 1,
+          "msg": "Effective DoF: 1 (Continuous)",
+          "raw_dof": 1
         }
       }
     }

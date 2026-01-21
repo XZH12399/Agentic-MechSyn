@@ -84,7 +84,10 @@ def main(cfg: DictConfig):
     agent = MechanismAgent(cfg)
 
     # 模拟用户输入
-    user_input = "设计一个满足'一个沿z轴平移运动'条件的空间单环并联机构。"
+    # user_input = "设计一个满足'一个沿z轴平移运动'条件的平面单环并联机构。"
+    user_input = "设计一个满足'一个转动'条件的平面单环并联机构。"
+    # user_input = "设计一个满足'一个自由度'条件的空间单环并联机构。"
+    # user_input = "设计一个满足Bennett并联机构。"
 
     # 运行全流程
     agent.run_pipeline(user_input)

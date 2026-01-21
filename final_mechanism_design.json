@@ -1,0 +1,48 @@
+{
+  "data": {
+    "joints": {
+      "0": "R",
+      "1": "R",
+      "3": "R",
+      "2": "R"
+    },
+    "edges": {
+      "0_1": {
+        "a": 100.8045043945,
+        "alpha": 0.0523612015,
+        "offset_source": -0.288094759,
+        "offset_target": 0.0013074687,
+        "state_source": 0.0387773439,
+        "state_target": 0.5108211637
+      },
+      "0_3": {
+        "a": 99.6555023193,
+        "alpha": -0.0004419239,
+        "offset_source": 0.288094759,
+        "offset_target": -0.3182644546,
+        "state_source": -0.0387773439,
+        "state_target": 0.718593955
+      },
+      "1_2": {
+        "a": 99.2644271851,
+        "alpha": 0.2023127377,
+        "offset_source": -0.0013074687,
+        "offset_target": -0.0070658396,
+        "state_source": 0.5363788605,
+        "state_target": 0.0396664701
+      },
+      "2_3": {
+        "a": 100.6169967651,
+        "alpha": 0.1736759543,
+        "offset_source": 0.0070658396,
+        "offset_target": 0.3182644546,
+        "state_source": -0.0396664701,
+        "state_target": 0.3286062181
+      }
+    }
+  },
+  "settings": {
+    "root_node": "0",
+    "ee_node": "2"
+  }
+}

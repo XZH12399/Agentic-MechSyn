@@ -1,113 +1,92 @@
+import torch
 import numpy as np
-import json
 import traceback
 
-
 class MechanismTensorAdapter:
-    def __init__(self, num_nodes):
+    def __init__(self, num_nodes=8):
         self.N = num_nodes
-        # === 维度定义 (5, N, N) ===
-        # Ch0: Exist (0/1)
-        # Ch1: Type (R=1, P=-1) - 行广播
-        # Ch2: a (Length)
-        # Ch3: alpha (Twist)
-        # Ch4: Offset (Absolute Coordinate at Source)
-        self.tensor = np.zeros((5, num_nodes, num_nodes), dtype=np.float32)
 
-    def json_to_tensor(self, data_input):
+    def json_to_tensor(self, topology_data):
         """
-        将 JSON 数据 (Graph结构) 转换为 物理张量 (Tensor)
-        兼容:
-        1. Old Schema: nodes={"0":"R"}, connections=[{source, target, a, ...}]
-        2. New Schema: nodes=[{id:0, type:"R"}], edges=[{source, target, params:{a...}}]
+        JSON -> Tensor (Final Fix)
+        [Fix]: 
+        1. 关节类型 (Channel 1) 由 Source Node 决定。
+        2. 固定参数 (Channel 4) 由 Source Node 的 offset_source 决定。
         """
-        # 每次调用前先重置张量，防止叠加
-        self.tensor.fill(0)
+        tensor = np.zeros((5, self.N, self.N), dtype=np.float32)
 
         try:
-            if isinstance(data_input, str):
-                data = json.loads(data_input)
-            else:
-                data = data_input
+            nodes = topology_data.get('nodes', {})
+            connections = topology_data.get('connections', [])
 
-            # 兼容旧版: 如果有 topology 键，取其内部
-            if "topology" in data:
-                data = data["topology"]
+            # Channel 1: Joint Types (Diagonal)
+            for node_id, node_info in nodes.items():
+                idx = int(node_id)
+                if idx >= self.N: continue
+                type_str = node_info.get('type', 'R') if isinstance(node_info, dict) else str(node_info)
+                val = 1.0 if type_str.upper() == "R" else -1.0
+                tensor[1, idx, idx] = val
 
-            # ==========================================
-            # 1. 解析节点 (Nodes) -> Ch1: Type
-            # ==========================================
-            nodes = data.get("nodes", {})
-
-            if isinstance(nodes, list):
-                # [Case A] New Schema: List of dicts
-                for node in nodes:
-                    i = int(node['id'])
-                    if i >= self.N: continue
-
-                    type_str = node.get('type', 'R')
-                    val = 1.0 if type_str.upper() == "R" else -1.0
-
-                    # 广播到整行：表示从节点 i 出发的关节类型
-                    self.tensor[1, i, :] = val
-
-            elif isinstance(nodes, dict):
-                # [Case B] Old Schema: Dict {id: type}
-                for node_idx, type_str in nodes.items():
-                    i = int(node_idx)
-                    if i >= self.N: continue
-
-                    val = 1.0 if type_str.upper() == "R" else -1.0
-                    self.tensor[1, i, :] = val
-
-            # ==========================================
-            # 2. 解析连接 (Edges/Connections) -> Ch0,2,3,4
-            # ==========================================
-            # 优先找 'edges' (新版)，找不到再找 'connections' (旧版)
-            connections = data.get("edges")
-            if connections is None:
-                connections = data.get("connections", [])
-
+            # Channels 0-4: Connections
             for conn in connections:
-                u = int(conn["source"])
-                v = int(conn["target"])
-
+                if hasattr(conn, 'model_dump'): c = conn.model_dump()
+                else: c = conn
+                u, v = int(c['source']), int(c['target'])
                 if u >= self.N or v >= self.N: continue
 
-                # Ch0: Exist (对称)
-                self.tensor[0, u, v] = 1.0
-                self.tensor[0, v, u] = 1.0
+                # Channel 0: Adjacency
+                tensor[0, u, v] = 1.0
+                tensor[0, v, u] = 1.0
 
-                # 提取参数源：新版在 'params' 中，旧版直接在 conn 中
-                params = conn.get("params", conn)
+                # Channel 1: Joint Type (Source Based)
+                # u->v 的类型由 u 决定
+                tensor[1, u, v] = tensor[1, u, u]
+                # v->u 的类型由 v 决定
+                tensor[1, v, u] = tensor[1, v, v]
 
-                # Ch2: Length a (对称)
-                if "a" in params:
-                    val = float(params["a"])
-                    self.tensor[2, u, v] = val
-                    self.tensor[2, v, u] = val
+                # Channel 2: a (Symmetric)
+                tensor[2, u, v] = c.get('a', 0.0)
+                tensor[2, v, u] = c.get('a', 0.0)
 
-                # Ch3: Twist alpha (对称)
-                if "alpha" in params:
-                    val = float(params["alpha"])
-                    self.tensor[3, u, v] = val
-                    self.tensor[3, v, u] = val
+                # Channel 3: alpha (Symmetric)
+                tensor[3, u, v] = c.get('alpha', 0.0)
+                tensor[3, v, u] = c.get('alpha', 0.0) 
 
-                # Ch4: Offset (非对称)
-                # 新版: Explicit source/target offsets
-                if "offset_source" in params and "offset_target" in params:
-                    self.tensor[4, u, v] = float(params["offset_source"])
-                    self.tensor[4, v, u] = float(params["offset_target"])
+                # ✨✨✨ [Core Fix]: Channel 4 (Offset) 必须与 Source 对应 ✨✨✨
+                # u->v 代表从 u 变换到 v，使用 u 处的固定参数
+                tensor[4, u, v] = c.get('offset_source', 0.0)
+                
+                # v->u 代表从 v 变换到 u，使用 v 处的固定参数
+                tensor[4, v, u] = c.get('offset_target', 0.0)
 
-                # 旧版: Single offset (通常假设是对称或仅指源)
-                elif "offset" in params:
-                    val = float(params["offset"])
-                    self.tensor[4, u, v] = val
-                    # self.tensor[4, v, u] = val # 根据需要决定是否对称
-
-            return self.tensor
+            return tensor
 
         except Exception as e:
-            print(f"❌ [TensorAdapter] Error parsing JSON: {e}")
+            print(f"❌ [TensorAdapter] Error: {e}")
             traceback.print_exc()
-            return self.tensor
+            return np.zeros((5, self.N, self.N))
+    
+    def tensor_to_json(self, tensor):
+        """
+        逆向转换: Tensor -> JSON
+        """
+        N = tensor.shape[1]
+        nodes = {}
+        connections = []
+
+        for i in range(N):
+            if tensor[1, i, i] != 0 or np.sum(tensor[0, i, :]) > 0:
+                nodes[str(i)] = "R" if tensor[1, i, i] > 0 else "P"
+
+        rows, cols = np.where(np.triu(tensor[0]) > 0)
+        for u, v in zip(rows, cols):
+            connections.append({
+                "source": int(u),
+                "target": int(v),
+                "a": float(tensor[2, u, v]),
+                "alpha": float(tensor[3, u, v]),
+                "offset_source": float(tensor[4, u, v]), # 修正后的对应关系
+                "offset_target": float(tensor[4, v, u])  # 修正后的对应关系
+            })
+
+        return {"nodes": nodes, "connections": connections}
